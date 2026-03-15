@@ -135,6 +135,11 @@ const handleSubmit = async () => {
     }
     
     const data = await response.json()
+    
+    if (data.code !== 200) {
+      throw new Error('Code使用失败,请联系客服')
+    }
+    
     result.filePath = data.data || data
     result.message = 'Code使用成功！'
     
