@@ -389,7 +389,7 @@ const handleDownload = async () => {
 
 .result-actions {
   display: flex;
-  flex-direction: column;
+  flex-direction: row;
   gap: 12px;
   margin-bottom: 16px;
 }
