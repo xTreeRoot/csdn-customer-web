@@ -21,7 +21,7 @@
         </div>
         
         <div class="form-group">
-          <label class="form-label">文章链接</label>
+          <label class="form-label">资源链接</label>
           <textarea 
             v-model="formData.url" 
             class="form-textarea"
@@ -66,10 +66,7 @@
             下载压缩包
           </button>
         </div>
-        
-        <div class="result-info">
-          <p>文件路径: {{ result.filePath }}</p>
-        </div>
+
       </div>
     </div>
   </div>
@@ -99,6 +96,8 @@ const result = reactive<Result>({
   filePath: '',
   message: ''
 })
+
+const filePath = computed(() => result.filePath)
 
 const isFormValid = computed(() => {
   return formData.code.trim().length > 0 
@@ -136,7 +135,7 @@ const handleSubmit = async () => {
     }
     
     const data = await response.json()
-    result.filePath = data
+    result.filePath = data.data || data
     result.message = 'Code使用成功！'
     
   } catch (err: any) {
@@ -148,22 +147,22 @@ const handleSubmit = async () => {
 }
 
 const handleOpenHtml = () => {
-  if (!result.filePath) {
+  if (!filePath.value) {
     error.value = '请先使用Code'
     return
   }
   
-  window.open(`/api/html-resource/view-by-path/${encodeURIComponent(result.filePath)}`, '_blank')
+  window.open(`/api/html-resource/view-by-path?filePath=${encodeURIComponent(filePath.value)}`, '_blank')
 }
 
 const handleDownload = async () => {
-  if (!result.filePath) {
+  if (!filePath.value) {
     error.value = '请先使用Code'
     return
   }
   
   try {
-    const response = await fetch(`/api/html-resource/download/${encodeURIComponent(result.filePath)}`)
+    const response = await fetch(`/api/html-resource/download?filePath=${encodeURIComponent(filePath.value)}`)
     
     if (!response.ok) {
       throw new Error('下载失败')
