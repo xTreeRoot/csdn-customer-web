@@ -74,6 +74,7 @@
 
 <script setup lang="ts">
 import { ref, reactive, computed } from 'vue'
+import { timeoutFetch } from '../utils/request'
 
 interface FormData {
   code: string
@@ -117,7 +118,7 @@ const handleSubmit = async () => {
     result.filePath = ''
     result.message = ''
     
-    const response = await fetch('/api/codes/use', {
+    const response = await timeoutFetch('/api/codes/use', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json'
@@ -167,7 +168,7 @@ const handleDownload = async () => {
   }
   
   try {
-    const response = await fetch(`/api/html-resource/download?filePath=${encodeURIComponent(filePath.value)}`)
+    const response = await timeoutFetch(`/api/html-resource/download?filePath=${encodeURIComponent(filePath.value)}`)
     
     if (!response.ok) {
       throw new Error('下载失败')
