@@ -2,22 +2,47 @@
   <div class="use-code-page">
     <div class="page-header">
       <h1 class="page-title">资源下载</h1>
-      <p class="page-subtitle">使用访问码下载会员文章</p>
+      <p class="page-subtitle">使用访问码下载会员资源</p>
     </div>
     
     <div class="form-container">
       <form @submit.prevent="handleSubmit">
         <div class="form-group">
           <label class="form-label">访问码</label>
-          <input 
-            v-model="formData.code" 
-            class="form-input" 
-            type="text"
-            placeholder="请输入访问码"
-            maxlength="50"
-            :disabled="loading"
-          />
-          <span class="char-count">{{ formData.code.length }}/50</span>
+          <div class="input-with-action">
+            <input 
+              v-model="formData.code" 
+              class="form-input" 
+              type="text"
+              placeholder="请输入访问码"
+              maxlength="50"
+              :disabled="loading"
+              @blur="handleCheckCode"
+            />
+            <span class="char-count">{{ formData.code.length }}/50</span>
+          </div>
+        </div>
+        
+        <div v-if="codeInfo" class="code-info-section">
+          <div class="info-title">访问码信息</div>
+          <div class="info-grid">
+            <div class="info-item">
+              <span class="info-label">使用类型：</span>
+              <span class="info-value">{{ codeInfo.usageTypeDescription }}</span>
+            </div>
+            <div class="info-item">
+              <span class="info-label">状态：</span>
+              <span class="info-value status" :class="getStatusClass(codeInfo.status)">{{ codeInfo.statusDescription }}</span>
+            </div>
+            <div v-if="codeInfo.remainingCount !== null" class="info-item">
+              <span class="info-label">剩余次数：</span>
+              <span class="info-value">{{ codeInfo.remainingCount }}/{{ codeInfo.maxUsageCount }}</span>
+            </div>
+            <div v-if="codeInfo.validDays" class="info-item">
+              <span class="info-label">有效天数：</span>
+              <span class="info-value">{{ codeInfo.validDays }}天</span>
+            </div>
+          </div>
         </div>
         
         <div class="form-group">
@@ -44,7 +69,7 @@
           :class="{ 'loading': loading }"
         >
           <span v-if="loading" class="loading-spinner"></span>
-          {{ loading ? '下载中...' : '使用Code' }}
+          {{ loading ? '下载中...' : getButtonText() }}
         </button>
       </form>
       
@@ -53,6 +78,7 @@
         
         <div class="result-actions">
           <button 
+            v-if="!isVipFileType"
             @click="handleOpenHtml" 
             class="action-btn primary-btn"
           >
@@ -63,7 +89,7 @@
             @click="handleDownload" 
             class="action-btn success-btn"
           >
-            下载压缩包
+            {{ isVipFileType ? '下载文件' : '下载压缩包' }}
           </button>
         </div>
 
@@ -81,6 +107,20 @@ interface FormData {
   url: string
 }
 
+interface CodeInfo {
+  usageType: string
+  usageTypeDescription: string
+  status: number
+  statusDescription: string
+  maxUsageCount: number | null
+  usedCount: number
+  remainingCount: number | null
+  validDays: number | null
+  validFrom: string | null
+  validTo: string | null
+  createTime: string
+}
+
 interface Result {
   filePath: string
   message: string
@@ -93,6 +133,7 @@ const formData = reactive<FormData>({
 
 const loading = ref(false)
 const error = ref('')
+const codeInfo = ref<CodeInfo | null>(null)
 const result = reactive<Result>({
   filePath: '',
   message: ''
@@ -100,15 +141,69 @@ const result = reactive<Result>({
 
 const filePath = computed(() => result.filePath)
 
+const isVipFileType = computed(() => {
+  return codeInfo.value?.usageType === 'vip_file'
+})
+
 const isFormValid = computed(() => {
   return formData.code.trim().length > 0 
     && formData.url.trim().length > 0
     && /^https?:\/\/.+csdn\.net\/.+/.test(formData.url.trim())
 })
 
+const getButtonText = () => {
+  if (isVipFileType.value) {
+    return '开始下载'
+  }
+  return '使用Code'
+}
+
+const getStatusClass = (status: number) => {
+  const statusMap: Record<number, string> = {
+    1: 'status-active',
+    0: 'status-banned',
+    '-1': 'status-expired',
+    '-2': 'status-depleted',
+    2: 'status-deleted'
+  }
+  return statusMap[status] || 'status-default'
+}
+
+const handleCheckCode = async () => {
+  const code = formData.code.trim()
+  if (!code) {
+    codeInfo.value = null
+    return
+  }
+
+  try {
+    const response = await timeoutFetch(`/api/codes/info?code=${encodeURIComponent(code)}`)
+    
+    if (!response.ok) {
+      const errorData = await response.json()
+      throw new Error(errorData.message || '查询Code信息失败')
+    }
+    
+    const data = await response.json()
+    
+    if (data.code !== 200) {
+      throw new Error(data.message || '查询Code信息失败')
+    }
+    
+    codeInfo.value = data.data
+    
+  } catch (err: any) {
+    codeInfo.value = null
+    error.value = err.message || '查询Code信息失败'
+    setTimeout(() => {
+      error.value = ''
+    }, 3000)
+  }
+}
+
 const handleSubmit = async () => {
   if (!isFormValid.value) {
-    error.value = '请填写完整的访问码和有效的文章链接'
+    error.value = '请填写完整的访问码和有效的资源链接'
     return
   }
   
@@ -178,7 +273,7 @@ const handleDownload = async () => {
     const url = window.URL.createObjectURL(blob)
     const a = document.createElement('a')
     a.href = url
-    a.download = `article_${Date.now()}.zip`
+    a.download = isVipFileType.value ? `file_${Date.now()}.zip` : `article_${Date.now()}.zip`
     document.body.appendChild(a)
     a.click()
     document.body.removeChild(a)
@@ -440,5 +535,90 @@ const handleDownload = async () => {
   font-size: 13px;
   color: #666;
   word-break: break-all;
+}
+
+.input-with-action {
+  position: relative;
+}
+
+.code-info-section {
+  margin-bottom: 24px;
+  padding: 20px;
+  background: #f8f9fa;
+  border-radius: 12px;
+  border: 1px solid #e9ecef;
+}
+
+.info-title {
+  font-size: 16px;
+  font-weight: 600;
+  color: #333;
+  margin-bottom: 16px;
+}
+
+.info-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  
+  @media (max-width: 768px) {
+    grid-template-columns: 1fr;
+  }
+}
+
+.info-item {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.info-label {
+  font-size: 12px;
+  color: #666;
+  font-weight: 500;
+}
+
+.info-value {
+  font-size: 14px;
+  color: #333;
+  font-weight: 600;
+}
+
+.info-value.status {
+  display: inline-block;
+  padding: 4px 12px;
+  border-radius: 12px;
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.status-active {
+  background: #d4edda;
+  color: #155724;
+}
+
+.status-banned {
+  background: #f8d7da;
+  color: #721c24;
+}
+
+.status-expired {
+  background: #fff3cd;
+  color: #856404;
+}
+
+.status-depleted {
+  background: #e2e3e5;
+  color: #383d41;
+}
+
+.status-deleted {
+  background: #f8d7da;
+  color: #721c24;
+}
+
+.status-default {
+  background: #e2e3e5;
+  color: #383d41;
 }
 </style>
