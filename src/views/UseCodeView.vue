@@ -18,8 +18,16 @@
               maxlength="50"
               :disabled="loading"
             />
-            <span class="char-count">{{ formData.code.length }}/50</span>
+            <button 
+              type="button"
+              class="query-btn"
+              @click="handleCheckCode"
+              :disabled="loading || !formData.code.trim()"
+            >
+              查询
+            </button>
           </div>
+          <span class="char-count">{{ formData.code.length }}/50</span>
         </div>
         
         <div v-if="codeInfo" class="code-info-section">
@@ -186,11 +194,10 @@ const formatDate = (dateStr: string) => {
   return `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`
 }
 
-const handleCheckCode = async () => {
-  const code = formData.code.trim()
+const fetchCodeInfo = async (code: string, showError: boolean = true): Promise<boolean> => {
   if (!code) {
     codeInfo.value = null
-    return
+    return false
   }
 
   try {
@@ -208,14 +215,23 @@ const handleCheckCode = async () => {
     }
     
     codeInfo.value = data.data
+    return true
     
   } catch (err: any) {
     codeInfo.value = null
-    error.value = err.message || '查询Code信息失败'
-    setTimeout(() => {
-      error.value = ''
-    }, 3000)
+    if (showError) {
+      error.value = err.message || '查询Code信息失败'
+      setTimeout(() => {
+        error.value = ''
+      }, 3000)
+    }
+    return false
   }
+}
+
+const handleCheckCode = async () => {
+  const code = formData.code.trim()
+  await fetchCodeInfo(code, true)
 }
 
 const handleSubmit = async () => {
@@ -232,16 +248,7 @@ const handleSubmit = async () => {
     
     const code = formData.code.trim()
     
-    const infoResponse = await timeoutFetch(`/api/codes/info?code=${encodeURIComponent(code)}`)
-    if (!infoResponse.ok) {
-      const errorData = await infoResponse.json()
-      throw new Error(errorData.message || '查询Code信息失败')
-    }
-    const infoData = await infoResponse.json()
-    if (infoData.code !== 200) {
-      throw new Error(infoData.message || '查询Code信息失败')
-    }
-    codeInfo.value = infoData.data
+    await fetchCodeInfo(code, false)
     
     const response = await timeoutFetch('/api/codes/use', {
       method: 'POST',
@@ -269,13 +276,7 @@ const handleSubmit = async () => {
     result.filePath = data.data || data
     result.message = 'Code使用成功！'
     
-    const refreshInfoResponse = await timeoutFetch(`/api/codes/info?code=${encodeURIComponent(code)}`)
-    if (refreshInfoResponse.ok) {
-      const refreshData = await refreshInfoResponse.json()
-      if (refreshData.code === 200) {
-        codeInfo.value = refreshData.data
-      }
-    }
+    await fetchCodeInfo(code, false)
     
   } catch (err: any) {
     error.value = err.message || '网络错误，请稍后重试'
@@ -377,7 +378,7 @@ const handleDownload = async () => {
 }
 
 .form-group {
-  margin-bottom: 24px;
+  margin-bottom: 32px;
   position: relative;
 }
 
@@ -390,7 +391,7 @@ const handleDownload = async () => {
 }
 
 .form-input {
-  width: 100%;
+  flex: 1;
   padding: 14px 16px;
   font-size: 16px;
   border: 2px solid #e0e0e0;
@@ -443,8 +444,8 @@ const handleDownload = async () => {
 
 .char-count {
   position: absolute;
-  right: 12px;
-  bottom: 12px;
+  right: 0;
+  bottom: -24px;
   font-size: 12px;
   color: #999;
 }
@@ -577,6 +578,38 @@ const handleDownload = async () => {
 
 .input-with-action {
   position: relative;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.query-btn {
+  padding: 0 20px;
+  height: 50px;
+  font-size: 14px;
+  font-weight: 600;
+  color: white;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  white-space: nowrap;
+  
+  &:hover:not(:disabled) {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+  }
+  
+  &:active:not(:disabled) {
+    transform: scale(0.98);
+  }
+  
+  &:disabled {
+    background: #ccc;
+    cursor: not-allowed;
+    transform: none;
+  }
 }
 
 .code-info-section {
