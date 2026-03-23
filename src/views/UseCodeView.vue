@@ -17,7 +17,6 @@
               placeholder="请输入访问码"
               maxlength="50"
               :disabled="loading"
-              @blur="handleCheckCode"
             />
             <span class="char-count">{{ formData.code.length }}/50</span>
           </div>
@@ -41,6 +40,10 @@
             <div v-if="codeInfo.validDays" class="info-item">
               <span class="info-label">有效天数：</span>
               <span class="info-value">{{ codeInfo.validDays }}天</span>
+            </div>
+            <div v-if="codeInfo.validTo" class="info-item">
+              <span class="info-label">到期时间：</span>
+              <span class="info-value">{{ formatDate(codeInfo.validTo) }}</span>
             </div>
           </div>
         </div>
@@ -108,6 +111,8 @@ interface FormData {
 }
 
 interface CodeInfo {
+  codeType: string
+  codeTypeDescription: string
   usageType: string
   usageTypeDescription: string
   status: number
@@ -169,6 +174,18 @@ const getStatusClass = (status: number) => {
   return statusMap[status] || 'status-default'
 }
 
+const formatDate = (dateStr: string) => {
+  if (!dateStr) return ''
+  const date = new Date(dateStr)
+  const year = date.getFullYear()
+  const month = String(date.getMonth() + 1).padStart(2, '0')
+  const day = String(date.getDate()).padStart(2, '0')
+  const hours = String(date.getHours()).padStart(2, '0')
+  const minutes = String(date.getMinutes()).padStart(2, '0')
+  const seconds = String(date.getSeconds()).padStart(2, '0')
+  return `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`
+}
+
 const handleCheckCode = async () => {
   const code = formData.code.trim()
   if (!code) {
@@ -213,13 +230,26 @@ const handleSubmit = async () => {
     result.filePath = ''
     result.message = ''
     
+    const code = formData.code.trim()
+    
+    const infoResponse = await timeoutFetch(`/api/codes/info?code=${encodeURIComponent(code)}`)
+    if (!infoResponse.ok) {
+      const errorData = await infoResponse.json()
+      throw new Error(errorData.message || '查询Code信息失败')
+    }
+    const infoData = await infoResponse.json()
+    if (infoData.code !== 200) {
+      throw new Error(infoData.message || '查询Code信息失败')
+    }
+    codeInfo.value = infoData.data
+    
     const response = await timeoutFetch('/api/codes/use', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json'
       },
       body: JSON.stringify({
-        code: formData.code.trim(),
+        code: code,
         targetUrl: formData.url.trim(),
         userId: null
       })
@@ -238,6 +268,14 @@ const handleSubmit = async () => {
     
     result.filePath = data.data || data
     result.message = 'Code使用成功！'
+    
+    const refreshInfoResponse = await timeoutFetch(`/api/codes/info?code=${encodeURIComponent(code)}`)
+    if (refreshInfoResponse.ok) {
+      const refreshData = await refreshInfoResponse.json()
+      if (refreshData.code === 200) {
+        codeInfo.value = refreshData.data
+      }
+    }
     
   } catch (err: any) {
     error.value = err.message || '网络错误，请稍后重试'
