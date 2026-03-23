@@ -102,8 +102,8 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, computed } from 'vue'
-import { timeoutFetch } from '../utils/request'
+import {computed, reactive, ref} from 'vue'
+import {timeoutFetch} from '../utils/request'
 
 interface FormData {
   code: string
@@ -263,7 +263,7 @@ const handleSubmit = async () => {
     const data = await response.json()
     
     if (data.code !== 200) {
-      throw new Error('Code使用失败,请联系客服')
+      throw new Error('Code使用失败,请联系客服'+data.message)
     }
     
     result.filePath = data.data || data
