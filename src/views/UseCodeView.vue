@@ -53,6 +53,20 @@
               <span class="info-label">到期时间：</span>
               <span class="info-value">{{ formatDate(codeInfo.validTo) }}</span>
             </div>
+            <div v-if="codeInfo.usedToday !== null" class="info-item">
+              <span class="info-label">今日使用：</span>
+              <span class="info-value" :class="codeInfo.usedToday ? 'used-today' : 'not-used-today'">
+                {{ codeInfo.usedToday ? '已使用' : '未使用' }}
+              </span>
+            </div>
+            <div v-if="codeInfo.annualRemainingCount !== null" class="info-item">
+              <span class="info-label">年卡剩余：</span>
+              <span class="info-value annual-remaining">{{ codeInfo.annualRemainingCount }}次</span>
+            </div>
+            <div v-if="codeInfo.usageRestrictionInfo" class="info-item full-width">
+              <span class="info-label">使用限制：</span>
+              <span class="info-value restriction">{{ codeInfo.usageRestrictionInfo }}</span>
+            </div>
           </div>
         </div>
         
@@ -132,6 +146,9 @@ interface CodeInfo {
   validFrom: string | null
   validTo: string | null
   createTime: string
+  usedToday: boolean | null
+  annualRemainingCount: number | null
+  usageRestrictionInfo: string | null
 }
 
 interface Result {
@@ -691,5 +708,28 @@ const handleDownload = async () => {
 .status-default {
   background: #e2e3e5;
   color: #383d41;
+}
+
+.info-item.full-width {
+  grid-column: 1 / -1;
+}
+
+.info-value.used-today {
+  color: #721c24;
+}
+
+.info-value.not-used-today {
+  color: #155724;
+}
+
+.info-value.annual-remaining {
+  color: #667eea;
+  font-weight: 700;
+}
+
+.info-value.restriction {
+  font-size: 13px;
+  color: #856404;
+  line-height: 1.6;
 }
 </style>
